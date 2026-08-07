@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chatperdu}
+      POSTGRES_USER: ${POSTGRES_USER:-chatperdu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chatperdu}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatperdu} -d ${POSTGRES_DB:-chatperdu}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+  api:
+    build: ./backend
+    ports: ["5000:5000"]
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
+      PURGE_KEY: ${PURGE_KEY:-development-purge-key}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:5000/api}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://chatperdu:chatperdu@db:5432/chatperdu}
+      EMAIL_MODE: ${EMAIL_MODE:-console}
+      EMAIL_FROM: ${EMAIL_FROM:-Chat Perdu <notifications@example.fr>}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+    volumes: ["audela-uploads:/app/uploads"]
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports: ["5173:5173"]
+    volumes: [".:/app"]
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
+    depends_on: [api]
+volumes:
+  postgres-data:
+  audela-uploads:
