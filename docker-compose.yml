@@ -14,13 +14,15 @@ services:
     volumes: ["postgres-data:/var/lib/postgresql/data"]
   api:
     build: ./backend
-    ports: ["5000:5000"]
+    expose: ["5000"]
     environment:
       JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
       PURGE_KEY: ${PURGE_KEY:-development-purge-key}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://audeladedonnees.fr,http://localhost:5173,http://localhost:5174}
-      PUBLIC_API_URL: ${PUBLIC_API_URL:-https://audeladedonnees.fr/api}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://chatperdu.audeladedonnees.fr,http://localhost:5173,http://localhost:5174}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-https://chatperdu.audeladedonnees.fr/api}
       DATABASE_URL: ${DATABASE_URL:-postgresql://chatperdu:chatperdu@db:5432/chatperdu}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       EMAIL_MODE: ${EMAIL_MODE:-console}
       EMAIL_FROM: ${EMAIL_FROM:-Chat Perdu <notifications@example.fr>}
       SMTP_HOST: ${SMTP_HOST:-localhost}
@@ -33,14 +35,11 @@ services:
       db:
         condition: service_healthy
   web:
-    image: node:22-alpine
-    working_dir: /app
-    command: sh -c "npm install && npm run dev"
-    ports: ["5173:5173"]
-    volumes: [".:/app"]
+    build: .
+    ports: ["3000:3000"]
     environment:
-      VITE_API_URL: ${VITE_API_URL:-/api}
-      VITE_AUDELA_AUTH_URL: ${VITE_AUDELA_AUTH_URL:-https://audeladedonnees.fr}
+      PORT: ${PORT:-3000}
+      FLASK_API_URL: ${FLASK_API_URL:-http://api:5000}
     depends_on: [api]
 volumes:
   postgres-data:
