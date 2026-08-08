@@ -88,9 +88,16 @@ export async function authenticate(mode, values) {
 
 export function audelaGoogleLoginUrl({mode = 'login'} = {}) {
   const safeMode = mode === 'signup' ? 'signup' : 'login';
-  const redirectTo = typeof window !== 'undefined' ? window.location.origin : '';
-  const params = new URLSearchParams({mode: safeMode, redirect_to: redirectTo});
-  return `${resolveApiUrl('auth/google/start')}?${params.toString()}`;
+  const appTarget = import.meta.env.VITE_AUDELA_GOOGLE_APP || 'tenant';
+  const tenantSlug = (import.meta.env.VITE_AUDELA_TENANT_SLUG || '').trim();
+  const params = new URLSearchParams({app: appTarget, legal_consent: 'accepted'});
+  if (safeMode === 'signup') {
+    params.set('mode', 'signup');
+  }
+  if (tenantSlug) {
+    params.set('tenant_slug', tenantSlug);
+  }
+  return `${resolveAudelaAuthUrl('app/login/google/start')}?${params.toString()}`;
 }
 
 export async function getNotifications() {
