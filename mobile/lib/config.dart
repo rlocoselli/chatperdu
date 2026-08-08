@@ -1,6 +1,12 @@
 class AppConfig {
   static const apiUrl = String.fromEnvironment('API_URL',
-      defaultValue: 'http://10.0.2.2:5000/api');
+      defaultValue: 'https://audeladedonnees.fr/api');
+  static const authUrl = String.fromEnvironment('AUTH_URL',
+      defaultValue: 'https://audeladedonnees.fr');
+  static const audelaGoogleApp = String.fromEnvironment('AUDELA_GOOGLE_APP',
+      defaultValue: 'tenant');
+  static const audelaTenantSlug = String.fromEnvironment('AUDELA_TENANT_SLUG',
+      defaultValue: '');
   static const privacyUrl = String.fromEnvironment('PRIVACY_URL',
       defaultValue: 'https://example.fr/confidentialite');
   static const productionAds =

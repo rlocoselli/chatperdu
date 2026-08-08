@@ -7,12 +7,15 @@ from pathlib import Path
 import jwt
 from flask import Flask, has_request_context, jsonify, request, send_file
 from flask_cors import CORS
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from email_service import AudelaEmailService, sighting_email
 
 db = SQLAlchemy()
+migrate = Migrate()
 
 def now(): return datetime.now(timezone.utc)
 
@@ -101,6 +104,7 @@ def notification_json(item):
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
     root = Path(__file__).parent
     database_url = normalize_database_url(os.getenv('DATABASE_URL'), root)
     app.config.update(
@@ -115,6 +119,7 @@ def create_app(test_config=None):
     if test_config: app.config.update(test_config)
     Path(app.config['UPLOAD_FOLDER']).mkdir(parents=True, exist_ok=True)
     db.init_app(app); CORS(app, resources={r'/api/*': {'origins': parse_origins(os.getenv('CORS_ORIGINS', '*'))}})
+    migrate.init_app(app, db)
     email_service=AudelaEmailService(app)
 
     def public_api_url():
@@ -178,6 +183,14 @@ def create_app(test_config=None):
         privacy='2026-08',
         database=app.config['SQLALCHEMY_DATABASE_URI'].split(':', 1)[0],
       )
+
+    @app.get('/health')
+    def health_alias():
+      return health()
+
+    @app.get('/ready')
+    def ready():
+      return jsonify(status='ready', service='audela-chat-perdu')
 
     @app.post('/api/auth/register')
     def register():
@@ -299,14 +312,15 @@ def create_app(test_config=None):
       sightings=Sighting.query.filter(Sighting.expires_at < now()).delete(); reports=Report.query.filter(Report.expires_at < now()).delete();db.session.commit()
       return jsonify(reports=reports,sightings=sightings)
 
-    with app.app_context():
-      db.create_all()
-      if not Report.query.first():
-        for data in [
-          ('Moka','Perdu','Canal Saint-Martin, Paris 10e','Roux & blanc','https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=900&q=85'),
-          ('Nala','Aperçu','Rue Oberkampf, Paris 11e','Écaille de tortue','https://images.unsplash.com/photo-1495360010541-f48722b34f7d?auto=format&fit=crop&w=900&q=85'),
-          ('Simba','Perdu','Buttes-Chaumont, Paris 19e','Tigré brun','https://images.unsplash.com/photo-1533743983669-94fa5c4338ec?auto=format&fit=crop&w=900&q=85')]:
-          db.session.add(Report(name=data[0],status=data[1],place=data[2],color=data[3],image_url=data[4],description='Aidez-nous à le retrouver. Approchez calmement et envoyez toute information utile.'))
+    if app.config.get('TESTING', False) or app.config.get('AUTO_CREATE_DB', False):
+      with app.app_context():
+        db.create_all()
+        if not Report.query.first():
+          for data in [
+            ('Moka','Perdu','Canal Saint-Martin, Paris 10e','Roux & blanc','https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=900&q=85'),
+            ('Nala','Aperçu','Rue Oberkampf, Paris 11e','Écaille de tortue','https://images.unsplash.com/photo-1495360010541-f48722b34f7d?auto=format&fit=crop&w=900&q=85'),
+            ('Simba','Perdu','Buttes-Chaumont, Paris 19e','Tigré brun','https://images.unsplash.com/photo-1533743983669-94fa5c4338ec?auto=format&fit=crop&w=900&q=85')]:
+            db.session.add(Report(name=data[0],status=data[1],place=data[2],color=data[3],image_url=data[4],description='Aidez-nous à le retrouver. Approchez calmement et envoyez toute information utile.'))
         db.session.commit()
     return app
 

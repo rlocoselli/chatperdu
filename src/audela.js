@@ -1,4 +1,4 @@
-import {resolveApiUrl, resolveAssetUrl} from './config';
+import {resolveApiUrl, resolveAssetUrl, resolveAudelaAuthUrl} from './config';
 
 function authHeaders() {
   const token = localStorage.getItem('audela-token') || import.meta.env.VITE_AUDELA_API_TOKEN || '';
@@ -84,6 +84,17 @@ export async function authenticate(mode, values) {
   const data = await readJson(response, 'Connexion impossible');
   localStorage.setItem('audela-token', data.token);
   return data;
+}
+
+export function audelaGoogleLoginUrl({mode = 'login'} = {}) {
+  const safeMode = mode === 'signup' ? 'signup' : 'login';
+  const appTarget = import.meta.env.VITE_AUDELA_GOOGLE_APP || 'tenant';
+  const tenantSlug = (import.meta.env.VITE_AUDELA_TENANT_SLUG || '').trim();
+  const params = new URLSearchParams({app: appTarget, mode: safeMode});
+  if (tenantSlug) {
+    params.set('tenant_slug', tenantSlug);
+  }
+  return `${resolveAudelaAuthUrl('login/google/start')}?${params.toString()}`;
 }
 
 export async function getNotifications() {

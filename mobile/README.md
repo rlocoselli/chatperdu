@@ -4,7 +4,19 @@ Les identifiants AdMob fournis sont exclusivement les identifiants de test offic
 
 ```bash
 flutter pub get
-flutter run --dart-define=API_URL=http://10.0.2.2:5000/api
+flutter run \
+	--dart-define=API_URL=https://audeladedonnees.fr/api \
+	--dart-define=AUTH_URL=https://audeladedonnees.fr
+```
+
+Google OAuth via Audela (ouverture dans le navigateur) utilise :
+
+```bash
+flutter run \
+	--dart-define=API_URL=https://audeladedonnees.fr/api \
+	--dart-define=AUTH_URL=https://audeladedonnees.fr \
+	--dart-define=AUDELA_GOOGLE_APP=tenant \
+	--dart-define=AUDELA_TENANT_SLUG=<slug-optionnel>
 ```
 
 Pour Android natif, vous pouvez injecter l'identifiant AdMob applicatif sans le hardcoder dans le dépôt :

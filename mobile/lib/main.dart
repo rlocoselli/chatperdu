@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'models/report.dart';
 import 'services/ad_service.dart';
 import 'services/api_service.dart';
@@ -311,30 +312,33 @@ class DetailPage extends StatelessWidget {
     final controller = TextEditingController();
     final place = TextEditingController();
     final contact = TextEditingController();
-    final message = await showDialog<String>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-                title: Text('Une information sur ${report.name}'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: controller, maxLines: 3),
-            const SizedBox(height: 12),
-            TextField(
-              controller: place,
-              decoration: const InputDecoration(labelText: 'Lieu')),
-            const SizedBox(height: 12),
-            TextField(
-              controller: contact,
-              decoration:
-                const InputDecoration(labelText: 'Contact (facultatif)'))
-          ]),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(dialog),
-                      child: const Text('Annuler')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(dialog, controller.text),
-                      child: const Text('Envoyer'))
-                ]));
+    final message = await _showFancyFormDialog(
+        context,
+        title: 'Une information sur ${report.name}',
+        subtitle: 'Chaque détail peut accélérer les retrouvailles.',
+        primaryLabel: 'Envoyer',
+        fields: [
+          TextField(
+            controller: controller,
+            maxLines: 3,
+            decoration: const InputDecoration(
+                labelText: 'Votre message', border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: place,
+            decoration: const InputDecoration(
+                labelText: 'Lieu', border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: contact,
+            decoration: const InputDecoration(
+                labelText: 'Contact (facultatif)', border: OutlineInputBorder()),
+          ),
+        ],
+        valueBuilder: () => controller.text,
+        canSubmit: () => controller.text.trim().length > 2);
     if (message != null && message.length > 2)
       await api.sighting(report.id, message,
           place: place.text, contact: contact.text);
@@ -451,10 +455,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
           builder: (_, snapshot) {
             if (snapshot.hasError)
               return Center(
-                  child: FilledButton.icon(
-                      onPressed: _login,
-                      icon: const Icon(Icons.login),
-                      label: const Text('Se connecter')));
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                FilledButton.icon(
+                  onPressed: _login,
+                  icon: const Icon(Icons.login),
+                  label: const Text('Se connecter')),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _loginWithGoogle,
+                  icon: const Icon(Icons.g_mobiledata),
+                  label: const Text('Continuer avec Google (Audela)')),
+                ]));
             if (!snapshot.hasData)
               return const Center(child: CircularProgressIndicator());
             if (snapshot.data!.isEmpty)
@@ -474,31 +487,133 @@ class _NotificationsPageState extends State<NotificationsPage> {
           }));
   Future<void> _login() async {
     final email = TextEditingController(), password = TextEditingController();
-    await showDialog(
-        context: context,
-        builder: (dialog) => AlertDialog(
-                title: const Text('Se connecter'),
-                content: Column(mainAxisSize: MainAxisSize.min, children: [
-                  TextField(
-                      controller: email,
-                      decoration: const InputDecoration(labelText: 'Email')),
-                  TextField(
-                      controller: password,
-                      obscureText: true,
-                      decoration:
-                          const InputDecoration(labelText: 'Mot de passe'))
-                ]),
-                actions: [
-                  FilledButton(
-                      onPressed: () async {
-                        await widget.api.authenticate('login',
-                            email: email.text, password: password.text);
-                        if (dialog.mounted) Navigator.pop(dialog);
-                      },
-                      child: const Text('Continuer'))
-                ]));
+    final payload = await _showFancyFormDialog<Map<String, String>>(
+      context,
+      title: 'Connexion propriétaire',
+      subtitle: 'Retrouvez vos notifications privées.',
+      primaryLabel: 'Continuer',
+      fields: [
+        TextField(
+            controller: email,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+                labelText: 'Email', border: OutlineInputBorder())),
+        const SizedBox(height: 12),
+        TextField(
+            controller: password,
+            obscureText: true,
+            decoration: const InputDecoration(
+                labelText: 'Mot de passe', border: OutlineInputBorder()))
+      ],
+      valueBuilder: () => {
+        'email': email.text.trim(),
+        'password': password.text,
+      },
+      canSubmit: () => email.text.trim().contains('@') && password.text.isNotEmpty,
+    );
+    if (payload != null) {
+      await widget.api.authenticate('login',
+          email: payload['email']!, password: payload['password']!);
+    }
     setState(() => future = widget.api.notifications());
   }
+
+  Future<void> _loginWithGoogle() async {
+    final url = widget.api.audelaGoogleLoginUri();
+    final launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ouvrir la connexion Google Audela.')));
+    }
+  }
+}
+
+Future<T?> _showFancyFormDialog<T>(
+  BuildContext context, {
+  required String title,
+  required String subtitle,
+  required String primaryLabel,
+  required List<Widget> fields,
+  required T Function() valueBuilder,
+  required bool Function() canSubmit,
+}) {
+  return showDialog<T>(
+      context: context,
+      barrierColor: const Color(0xcc102f28),
+      builder: (dialog) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xfff8faf7), Color(0xfff0f5f3)]),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x40112e28),
+                      blurRadius: 34,
+                      offset: Offset(0, 18))
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+                child: StatefulBuilder(builder: (ctx, setLocalState) {
+                  return Column(mainAxisSize: MainAxisSize.min, children: [
+                    Row(children: [
+                      Container(
+                        height: 38,
+                        width: 38,
+                        decoration: BoxDecoration(
+                            color: orange.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.pets, color: orange),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            Text(title,
+                                style: const TextStyle(
+                                    color: green,
+                                    fontFamily: 'serif',
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text(subtitle,
+                                style: const TextStyle(
+                                    color: Color(0xff55766d),
+                                    fontSize: 13,
+                                    height: 1.4))
+                          ])),
+                      IconButton(
+                          onPressed: () => Navigator.pop(dialog),
+                          icon: const Icon(Icons.close))
+                    ]),
+                    const SizedBox(height: 14),
+                    ...fields,
+                    const SizedBox(height: 16),
+                    Row(children: [
+                      Expanded(
+                          child: OutlinedButton(
+                              onPressed: () => Navigator.pop(dialog),
+                              child: const Text('Annuler'))),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: FilledButton(
+                              style: FilledButton.styleFrom(backgroundColor: orange),
+                              onPressed: canSubmit()
+                                  ? () => Navigator.pop(dialog, valueBuilder())
+                                  : null,
+                              child: Text(primaryLabel)))
+                    ])
+                  ]);
+                }),
+              ),
+            ),
+          ));
 }
 
 class PrivacyPage extends StatelessWidget {

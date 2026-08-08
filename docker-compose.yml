@@ -18,8 +18,8 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
       PURGE_KEY: ${PURGE_KEY:-development-purge-key}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
-      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:5000/api}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://audeladedonnees.fr,http://localhost:5173,http://localhost:5174}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-https://audeladedonnees.fr/api}
       DATABASE_URL: ${DATABASE_URL:-postgresql://chatperdu:chatperdu@db:5432/chatperdu}
       EMAIL_MODE: ${EMAIL_MODE:-console}
       EMAIL_FROM: ${EMAIL_FROM:-Chat Perdu <notifications@example.fr>}
@@ -39,7 +39,8 @@ services:
     ports: ["5173:5173"]
     volumes: [".:/app"]
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
+      VITE_API_URL: ${VITE_API_URL:-/api}
+      VITE_AUDELA_AUTH_URL: ${VITE_AUDELA_AUTH_URL:-https://audeladedonnees.fr}
     depends_on: [api]
 volumes:
   postgres-data:
