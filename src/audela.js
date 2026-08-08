@@ -9,9 +9,17 @@ function authHeaders() {
 }
 
 async function readJson(response, fallbackMessage) {
-  const data = await response.json().catch(() => ({}));
+  const text = await response.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {};
+    }
+  }
   if (!response.ok) {
-    throw new Error(data.error || fallbackMessage);
+    throw new Error(data.error || `${fallbackMessage} (${response.status})`);
   }
   return data;
 }

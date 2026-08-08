@@ -11,6 +11,12 @@ app.use(
   createProxyMiddleware({
     target: FLASK_API_URL,
     changeOrigin: true,
+    onError: (err, _req, res) => {
+      if (!res.headersSent) {
+        res.writeHead(504, {'Content-Type': 'application/json'});
+      }
+      res.end(JSON.stringify({error: `API backend unavailable via ${FLASK_API_URL}`}));
+    },
   })
 );
 
