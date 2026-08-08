@@ -28,23 +28,13 @@ class ApiService {
   Future<bool> hasToken() async =>
       (await SharedPreferences.getInstance()).containsKey('audela-token');
 
-  Uri audelaGoogleLoginUri({bool signup = false, String? next}) {
+  Uri audelaGoogleLoginUri({bool signup = false}) {
+    final apiOrigin = Uri.parse(AppConfig.apiUrl).origin;
     final params = <String, String>{
-      'app': AppConfig.audelaGoogleApp,
-      'legal_consent': 'accepted',
+      'mode': signup ? 'signup' : 'login',
+      'redirect_to': apiOrigin,
     };
-    if (signup) {
-      params['mode'] = 'signup';
-    }
-    final nextTarget = (next ?? '').trim();
-    if (nextTarget.isNotEmpty) {
-      params['next'] = nextTarget;
-    }
-    final tenantSlug = AppConfig.audelaTenantSlug.trim();
-    if (tenantSlug.isNotEmpty) {
-      params['tenant_slug'] = tenantSlug;
-    }
-    return Uri.parse('${AppConfig.authUrl}/app/login/google/start').replace(
+    return Uri.parse('${AppConfig.apiUrl}/auth/google/start').replace(
       queryParameters: params,
     );
   }
@@ -53,7 +43,7 @@ class ApiService {
       {required String email,
       required String password,
       String name = ''}) async {
-    final r = await http.post(Uri.parse('${AppConfig.authUrl}/auth/$mode'),
+    final r = await http.post(Uri.parse('${AppConfig.apiUrl}/auth/$mode'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'name': name, 'email': email, 'password': password}));
     final data = await _json(r, fallback: 'Connexion impossible');

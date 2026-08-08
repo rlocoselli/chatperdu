@@ -1,11 +1,14 @@
 import os
+import secrets
+import urllib.parse
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 
 import jwt
-from flask import Flask, has_request_context, jsonify, request, send_file
+import requests as _http
+from flask import Flask, has_request_context, jsonify, redirect, request, send_file
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -112,6 +115,8 @@ def create_app(test_config=None):
       SQLALCHEMY_TRACK_MODIFICATIONS=False, JWT_SECRET=os.getenv('JWT_SECRET', 'dev-change-me'),
       MAX_CONTENT_LENGTH=8 * 1024 * 1024, UPLOAD_FOLDER=str(root / 'uploads'),
       PUBLIC_API_URL=os.getenv('PUBLIC_API_URL', '').rstrip('/'),
+      GOOGLE_CLIENT_ID=os.getenv('GOOGLE_CLIENT_ID', ''),
+      GOOGLE_CLIENT_SECRET=os.getenv('GOOGLE_CLIENT_SECRET', ''),
       EMAIL_MODE=os.getenv('EMAIL_MODE','console'), EMAIL_FROM=os.getenv('EMAIL_FROM','Chat Perdu <notifications@example.fr>'),
       SMTP_HOST=os.getenv('SMTP_HOST','localhost'), SMTP_PORT=int(os.getenv('SMTP_PORT','587')),
       SMTP_USER=os.getenv('SMTP_USER',''), SMTP_PASSWORD=os.getenv('SMTP_PASSWORD',''),
@@ -205,6 +210,90 @@ def create_app(test_config=None):
       data=request.get_json(silent=True) or {}; user=User.query.filter_by(email=data.get('email','').lower()).first()
       if not user or not check_password_hash(user.password_hash,data.get('password','')): return jsonify(error='Identifiants invalides'),401
       return jsonify(token=jwt.encode({'sub':str(user.id),'exp':now()+timedelta(days=7)},app.config['JWT_SECRET'],algorithm='HS256'))
+
+    def _safe_redirect_to(value):
+      fallback = request.url_root.rstrip('/')
+      if not value:
+        return fallback
+      parsed = urllib.parse.urlparse(value)
+      if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+        return fallback
+      return value.rstrip('/')
+
+    @app.get('/api/auth/google/start')
+    def google_start():
+      client_id = app.config.get('GOOGLE_CLIENT_ID', '')
+      client_secret = app.config.get('GOOGLE_CLIENT_SECRET', '')
+      if not client_id or not client_secret:
+        return jsonify(error='Google OAuth non configuré'),503
+      mode = request.args.get('mode', 'login')
+      if mode not in ('login', 'signup'):
+        mode = 'login'
+      redirect_to = _safe_redirect_to(request.args.get('redirect_to', ''))
+      callback_url = f"{request.url_root.rstrip('/')}/api/auth/google/callback"
+      state = jwt.encode(
+        {'nonce': secrets.token_hex(16), 'mode': mode, 'redirect_to': redirect_to, 'exp': now()+timedelta(minutes=15)},
+        app.config['JWT_SECRET'],
+        algorithm='HS256',
+      )
+      params = urllib.parse.urlencode({
+        'client_id': client_id,
+        'redirect_uri': callback_url,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'access_type': 'online',
+        'prompt': 'select_account',
+      })
+      return redirect(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+
+    @app.get('/api/auth/google/callback')
+    def google_callback():
+      error = request.args.get('error')
+      code = request.args.get('code')
+      state_token = request.args.get('state', '')
+      try:
+        state = jwt.decode(state_token, app.config['JWT_SECRET'], algorithms=['HS256'])
+      except jwt.PyJWTError:
+        return redirect('/#google_error=invalid_state')
+      redirect_to = _safe_redirect_to(state.get('redirect_to', ''))
+      if error or not code:
+        return redirect(f"{redirect_to}/#google_error={urllib.parse.quote(error or 'cancelled')}")
+      callback_url = f"{request.url_root.rstrip('/')}/api/auth/google/callback"
+      try:
+        tr = _http.post(
+          'https://oauth2.googleapis.com/token',
+          data={
+            'code': code,
+            'client_id': app.config['GOOGLE_CLIENT_ID'],
+            'client_secret': app.config['GOOGLE_CLIENT_SECRET'],
+            'redirect_uri': callback_url,
+            'grant_type': 'authorization_code',
+          },
+          timeout=10,
+        )
+        tr.raise_for_status()
+        access_token = tr.json()['access_token']
+        ui = _http.get(
+          'https://www.googleapis.com/oauth2/v3/userinfo',
+          headers={'Authorization': f'Bearer {access_token}'},
+          timeout=10,
+        )
+        ui.raise_for_status()
+        info = ui.json()
+      except Exception:
+        app.logger.exception('Google OAuth failed')
+        return redirect(f"{redirect_to}/#google_error=auth_failed")
+      email = info.get('email', '').strip().lower()
+      name = (info.get('name') or info.get('given_name') or email.split('@')[0])[:80]
+      if not email:
+        return redirect(f"{redirect_to}/#google_error=no_email")
+      user = User.query.filter_by(email=email).first()
+      if not user:
+        user = User(email=email, name=name, password_hash=generate_password_hash(secrets.token_hex(32)))
+        db.session.add(user); db.session.flush(); preferences(user.id); db.session.commit()
+      token = jwt.encode({'sub':str(user.id),'exp':now()+timedelta(days=7)},app.config['JWT_SECRET'],algorithm='HS256')
+      return redirect(f"{redirect_to}/#token={urllib.parse.quote(token)}")
 
     @app.get('/api/reports')
     def reports():
