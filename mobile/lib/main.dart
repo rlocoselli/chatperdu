@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'models/report.dart';
 import 'services/ad_service.dart';
 import 'services/api_service.dart';
@@ -465,8 +467,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: _loginWithGoogle,
-                  icon: const Icon(Icons.g_mobiledata),
-                  label: const Text('Continuer avec Google (Audela)')),
+                  icon: Image.network(
+                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                    width: 18, height: 18,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata),
+                  ),
+                  label: const Text('Continuer avec Google')),
                 ]));
             if (!snapshot.hasData)
               return const Center(child: CircularProgressIndicator());
@@ -520,11 +526,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _loginWithGoogle() async {
     final url = widget.api.audelaGoogleLoginUri();
-    final launched = await launchUrl(url, mode: LaunchMode.externalApplication);
-    if (!launched && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d\'ouvrir la connexion Google Audela.')));
+    final token = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+          builder: (_) => _GoogleOAuthPage(startUrl: url)),
+    );
+    if (token != null && token.isNotEmpty) {
+      final p = await SharedPreferences.getInstance();
+      await p.setString('audela-token', token);
     }
+    if (mounted) setState(() => future = widget.api.notifications());
   }
 }
 
@@ -640,4 +651,55 @@ class PrivacyPage extends StatelessWidget {
             title: const Text('Choix publicitaires'),
             onTap: ads.showPrivacyOptions),
       ]));
+}
+
+class _GoogleOAuthPage extends StatefulWidget {
+  final Uri startUrl;
+  const _GoogleOAuthPage({required this.startUrl});
+  @override
+  State<_GoogleOAuthPage> createState() => _GoogleOAuthPageState();
+}
+
+class _GoogleOAuthPageState extends State<_GoogleOAuthPage> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onNavigationRequest: (request) {
+          final uri = Uri.tryParse(request.url);
+          if (uri == null) return NavigationDecision.navigate;
+          final fragment = uri.fragment;
+          if (fragment.contains('token=')) {
+            final token = Uri.splitQueryString(fragment)['token'] ?? '';
+            if (token.isNotEmpty) {
+              Navigator.pop(context, token);
+              return NavigationDecision.prevent;
+            }
+          }
+          if (fragment.contains('google_error=')) {
+            Navigator.pop(context, null);
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+      ))
+      ..loadRequest(widget.startUrl);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Connexion Google'),
+          backgroundColor: green,
+          foregroundColor: Colors.white,
+          leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context, null)),
+        ),
+        body: WebViewWidget(controller: _controller),
+      );
 }

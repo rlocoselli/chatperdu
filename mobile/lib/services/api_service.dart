@@ -29,15 +29,12 @@ class ApiService {
       (await SharedPreferences.getInstance()).containsKey('audela-token');
 
   Uri audelaGoogleLoginUri({bool signup = false}) {
+    final apiOrigin = Uri.parse(AppConfig.apiUrl).origin;
     final params = <String, String>{
-      'app': AppConfig.audelaGoogleApp,
       'mode': signup ? 'signup' : 'login',
+      'redirect_to': apiOrigin,
     };
-    final tenantSlug = AppConfig.audelaTenantSlug.trim();
-    if (tenantSlug.isNotEmpty) {
-      params['tenant_slug'] = tenantSlug;
-    }
-    return Uri.parse('${AppConfig.authUrl}/login/google/start')
+    return Uri.parse('${AppConfig.apiUrl}/auth/google/start')
         .replace(queryParameters: params);
   }
 
