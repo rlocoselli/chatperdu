@@ -28,13 +28,17 @@ class ApiService {
   Future<bool> hasToken() async =>
       (await SharedPreferences.getInstance()).containsKey('audela-token');
 
-  Uri audelaGoogleLoginUri({bool signup = false}) {
+  Uri audelaGoogleLoginUri({bool signup = false, String? next}) {
     final params = <String, String>{
       'app': AppConfig.audelaGoogleApp,
       'legal_consent': 'accepted',
     };
     if (signup) {
       params['mode'] = 'signup';
+    }
+    final nextTarget = (next ?? '').trim();
+    if (nextTarget.isNotEmpty) {
+      params['next'] = nextTarget;
     }
     final tenantSlug = AppConfig.audelaTenantSlug.trim();
     if (tenantSlug.isNotEmpty) {

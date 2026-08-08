@@ -90,9 +90,13 @@ export function audelaGoogleLoginUrl({mode = 'login'} = {}) {
   const safeMode = mode === 'signup' ? 'signup' : 'login';
   const appTarget = import.meta.env.VITE_AUDELA_GOOGLE_APP || 'tenant';
   const tenantSlug = (import.meta.env.VITE_AUDELA_TENANT_SLUG || '').trim();
+  const nextTarget = typeof window !== 'undefined' ? window.location.href : '';
   const params = new URLSearchParams({app: appTarget, legal_consent: 'accepted'});
   if (safeMode === 'signup') {
     params.set('mode', 'signup');
+  }
+  if (nextTarget) {
+    params.set('next', nextTarget);
   }
   if (tenantSlug) {
     params.set('tenant_slug', tenantSlug);
