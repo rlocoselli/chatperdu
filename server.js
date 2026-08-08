@@ -4,7 +4,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const FLASK_API_URL = process.env.FLASK_API_URL || 'http://127.0.0.1:5000';
+const FLASK_API_URL = process.env.FLASK_API_URL || 'http://api:5000';
 
 app.use(
   '/api',
