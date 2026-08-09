@@ -114,4 +114,10 @@ class ApiService {
             {'message': message, 'place': place, 'contact': contact}));
     await _json(r, fallback: 'Envoi impossible');
   }
+
+  Future<void> deleteReport(String id) async {
+    final r = await http.delete(Uri.parse('${AppConfig.apiUrl}/reports/$id'),
+        headers: await _authHeaders());
+    await _json(r, fallback: 'Suppression impossible');
+  }
 }

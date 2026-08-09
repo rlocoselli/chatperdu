@@ -143,3 +143,10 @@ export async function sendSighting(reportId, payload) {
   });
   return readJson(response, 'Envoi impossible');
 }
+
+export async function deleteReport(reportId) {
+  const response = await fetch(resolveApiUrl(`reports/${reportId}`), {
+    method: 'DELETE', headers: authHeaders(),
+  });
+  return readJson(response, 'Suppression impossible');
+}

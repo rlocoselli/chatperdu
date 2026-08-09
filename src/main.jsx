@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {MapPin, Search, Plus, Bell, Heart, Clock, ChevronRight, X, Upload, ShieldCheck, Navigation, Menu, Check, Phone, ArrowLeft, Sparkles, Image as ImageIcon} from 'lucide-react';
 import './styles.css';
-import {audelaGoogleLoginUrl, authenticate, getNotifications, getReports, publishToAudela, readAllNotifications, sendSighting, uploadImage} from './audela';
+import {audelaGoogleLoginUrl, authenticate, deleteReport, getNotifications, getReports, publishToAudela, readAllNotifications, sendSighting, uploadImage} from './audela';
 
 function Logo(){return <div className="logo"><span><Heart size={17} fill="currentColor"/></span>chat<span className="logo-dot">perdu</span></div>}
 
@@ -12,6 +12,8 @@ function App(){
  useEffect(()=>{if(token)getNotifications().then(setNotifications).catch(()=>{})},[token]);
  const toast=(t)=>{setNotice(t);setTimeout(()=>setNotice(''),2600)};
  const submitReport=async data=>{try{const result=await publishToAudela(data);if(result.data)setCats(c=>[result.data,...c]);setModal(false);toast('Votre alerte a bien été publiée.')}catch(e){toast(e.message)}};
+ const removeReport=async report=>{if(!token){setAuthOpen(true);return}if(!window.confirm(`Supprimer le signalement de ${report.name} ?`))return;try{await deleteReport(report.id);setCats(c=>c.filter(x=>x.id!==report.id));setSelected(null);toast('Signalement supprimé.')}catch(e){toast(e.message)}};
+ const locateMe=()=>navigator.geolocation?.getCurrentPosition(({coords})=>{setCats(c=>c.map(x=>({...x,_distance:x.latitude&&x.longitude?Math.round(Math.hypot((x.latitude-coords.latitude)*111,(x.longitude-coords.longitude)*75)):99999})).sort((a,b)=>a._distance-b._distance));toast('Signalements triés autour de vous.');},()=>toast('Localisation refusée ou indisponible.'));
  return <div>
   <header><Logo/><nav className={menu?'open':''}><a href="#signalements">Les signalements</a><a href="#conseils">Conseils</a><a href="#entraide">L'entraide</a></nav><div className="head-actions"><button className="icon-btn" aria-label="Notifications" onClick={()=>{if(!token)return setAuthOpen(true);setNotificationOpen(!notificationOpen);getNotifications().then(setNotifications).catch(()=>{})}}><Bell size={20}/>{notifications.unread>0&&<i/>}</button><button className="login" onClick={()=>token?setNotificationOpen(!notificationOpen):setAuthOpen(true)}>{token?'Mon espace':'Se connecter'}</button><button className="primary small" onClick={()=>setModal(true)}><Plus size={18}/>Publier</button><button className="menu" onClick={()=>setMenu(!menu)}><Menu/></button></div></header>
   <main>

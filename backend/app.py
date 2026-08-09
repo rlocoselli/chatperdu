@@ -336,6 +336,16 @@ def create_app(test_config=None):
           (f'Statut de {item.name} mis à jour',f'Bonjour {user.name}, le statut de {item.name} est maintenant « {item.status} ».'))
       db.session.commit();return jsonify(serialize_report(item))
 
+    @app.delete('/api/reports/<report_id>')
+    @auth
+    def delete_report(user, report_id):
+      item = db.get_or_404(Report, report_id)
+      if item.owner_id != user.id:
+        return jsonify(error='Vous ne pouvez supprimer que vos propres signalements'), 403
+      Sighting.query.filter_by(report_id=report_id).delete()
+      Notification.query.filter_by(report_id=report_id).delete()
+      db.session.delete(item); db.session.commit(); return '', 204
+
     @app.post('/api/reports/<report_id>/sightings')
     def sighting(report_id):
       report=db.get_or_404(Report,report_id); data=request.get_json(silent=True) or {}
