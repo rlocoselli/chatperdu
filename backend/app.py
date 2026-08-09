@@ -33,7 +33,11 @@ def normalize_database_url(value, root):
   if not raw:
     return f"sqlite:///{root / 'audela.db'}"
   if raw.startswith('postgres://'):
-    return raw.replace('postgres://', 'postgresql://', 1)
+    raw = raw.replace('postgres://', 'postgresql://', 1)
+  # requirements.txt installs psycopg (v3), while SQLAlchemy's bare
+  # postgresql:// URL selects the psycopg2 dialect by default.
+  if raw.startswith('postgresql://'):
+    return raw.replace('postgresql://', 'postgresql+psycopg://', 1)
   return raw
 
 class User(db.Model):
