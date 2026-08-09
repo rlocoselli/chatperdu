@@ -106,7 +106,11 @@ def notification_json(item):
       'created_at':item.created_at.isoformat() if item.created_at else None}
 
 def create_app(test_config=None):
-    app = Flask(__name__)
+    # The standalone Audela deployment serves the Vite build from the same
+    # Flask container.  The directory is optional so the API-only image and
+    # the existing docker-compose stack keep working unchanged.
+    frontend_dist = Path(__file__).parent / 'dist'
+    app = Flask(__name__, static_folder=str(frontend_dist) if frontend_dist.is_dir() else None)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
     root = Path(__file__).parent
     database_url = normalize_database_url(os.getenv('DATABASE_URL'), root)
@@ -400,6 +404,18 @@ def create_app(test_config=None):
       if request.headers.get('X-Purge-Key') != os.getenv('PURGE_KEY','dev-purge'): return jsonify(error='Accès refusé'),403
       sightings=Sighting.query.filter(Sighting.expires_at < now()).delete(); reports=Report.query.filter(Report.expires_at < now()).delete();db.session.commit()
       return jsonify(reports=reports,sightings=sightings)
+
+    if frontend_dist.is_dir():
+      @app.get('/')
+      def frontend_index():
+        return send_file(frontend_dist / 'index.html')
+
+      @app.get('/<path:path>')
+      def frontend_routes(path):
+        requested = frontend_dist / path
+        if requested.is_file():
+          return send_file(requested)
+        return send_file(frontend_dist / 'index.html')
 
     if app.config.get('TESTING', False) or app.config.get('AUTO_CREATE_DB', False):
       with app.app_context():
