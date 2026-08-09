@@ -17,9 +17,9 @@ def test_uploads_and_report_urls_are_absolute_with_public_api_url(tmp_path):
     upload=c.post('/api/uploads',data={'file':(BytesIO(b'fake-image'),'moka.png')},content_type='multipart/form-data')
     assert upload.status_code==201
     payload=upload.get_json()
-    assert payload['url']=='https://api.chatperdu.example/api/uploads/' + payload['path'].split('/')[-1]
+    assert payload['url'].startswith('data:image/png;base64,')
     report=c.post('/api/reports',json={'name':'Moka','place':'Paris','image_url':payload['path']}).get_json()
-    assert report['image'].startswith('https://api.chatperdu.example/api/uploads/')
+    assert report['image']=='https://api.chatperdu.example/api/reports/' + report['id'] + '/image'
 
 def test_create_report(tmp_path):
     c=client(tmp_path)

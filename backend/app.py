@@ -1,3 +1,4 @@
+import base64
 import os
 import secrets
 import urllib.parse
@@ -61,6 +62,8 @@ class Report(db.Model):
     sex = db.Column(db.String(20), default='Inconnu')
     description = db.Column(db.Text, default='')
     image_url = db.Column(db.String(500), default='')
+    image_data = db.Column(db.LargeBinary)
+    image_mime = db.Column(db.String(80), default='')
     public_contact = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime(timezone=True), default=now)
     expires_at = db.Column(db.DateTime(timezone=True), default=lambda: now() + timedelta(days=365))
@@ -154,7 +157,10 @@ def create_app(test_config=None):
       return value
 
     def serialize_report(item):
-      return report_json(item, absolute_upload_url(item.image_url))
+      image = absolute_upload_url(item.image_url)
+      if item.image_data:
+        image = f"{public_api_url()}/reports/{item.id}/image"
+      return report_json(item, image)
 
     def preferences(user_id):
       prefs=db.session.get(NotificationPreference,user_id)
@@ -320,7 +326,13 @@ def create_app(test_config=None):
       if not data.get('name') or not data.get('place'): return jsonify(error='Prénom et dernier lieu requis'),400
       try: user=current_user(optional=True)
       except PermissionError: return jsonify(error='Jeton invalide'),401
-      item=Report(owner_id=user.id if user else None,name=data['name'][:80],place=data['place'][:180],status=data.get('status','Perdu'),color=data.get('color','Non précisé'),sex=data.get('sex','Inconnu'),description=data.get('description','')[:3000],image_url=data.get('image_url','')[:500],latitude=data.get('latitude'),longitude=data.get('longitude'))
+      image_url=data.get('image_url','')
+      image_data=None; image_mime=''
+      if image_url.startswith('data:image/') and ';base64,' in image_url:
+        header, encoded=image_url.split(';base64,',1)
+        image_mime=header[5:80]; image_data=base64.b64decode(encoded)
+        image_url=''
+      item=Report(owner_id=user.id if user else None,name=data['name'][:80],place=data['place'][:180],status=data.get('status','Perdu'),color=data.get('color','Non précisé'),sex=data.get('sex','Inconnu'),description=data.get('description','')[:3000],image_url=image_url[:500],image_data=image_data,image_mime=image_mime,latitude=data.get('latitude'),longitude=data.get('longitude'))
       db.session.add(item);db.session.commit();return jsonify(serialize_report(item)),201
 
     @app.patch('/api/reports/<report_id>')
@@ -394,12 +406,20 @@ def create_app(test_config=None):
     def upload():
       file=request.files.get('file')
       if not file or Path(file.filename).suffix.lower() not in {'.jpg','.jpeg','.png','.webp'}: return jsonify(error='Image JPG, PNG ou WebP requise'),400
-      name=f'{uuid.uuid4().hex}{Path(secure_filename(file.filename)).suffix.lower()}';file.save(Path(app.config['UPLOAD_FOLDER'])/name)
-      path=f'/api/uploads/{name}'
-      return jsonify(url=absolute_upload_url(path), path=path),201
+      raw=file.read()
+      if len(raw)>8*1024*1024: return jsonify(error='Image trop volumineuse'),413
+      mime=file.mimetype or 'application/octet-stream'
+      data_url=f'data:{mime};base64,{base64.b64encode(raw).decode()}'
+      return jsonify(url=data_url, path=data_url),201
 
     @app.get('/api/uploads/<name>')
     def uploaded(name): return send_file(Path(app.config['UPLOAD_FOLDER'])/secure_filename(name))
+
+    @app.get('/api/reports/<report_id>/image')
+    def report_image(report_id):
+      item=db.get_or_404(Report, report_id)
+      if not item.image_data: return jsonify(error='Image introuvable'), 404
+      return app.response_class(item.image_data, mimetype=item.image_mime or 'application/octet-stream')
 
     @app.get('/api/privacy/export')
     @auth
