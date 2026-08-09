@@ -307,6 +307,11 @@ class DetailPage extends StatelessWidget {
                         onPressed: () => _inform(context),
                         icon: const Icon(Icons.chat_bubble_outline),
                         label: const Text("J'ai une information")),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                        onPressed: () => _delete(context),
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Supprimer ce signalement')),
                   ])),
         ]),
       );
@@ -344,6 +349,29 @@ class DetailPage extends StatelessWidget {
     if (message != null && message.length > 2)
       await api.sighting(report.id, message,
           place: place.text, contact: contact.text);
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+              title: const Text('Supprimer le signalement ?'),
+              content: const Text('Cette action est réservée à son propriétaire.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+                FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Supprimer')),
+              ],
+            ));
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await api.deleteReport(report.id);
+      if (context.mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signalement supprimé')));
+      }
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
   }
 }
 
