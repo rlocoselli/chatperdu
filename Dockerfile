@@ -17,4 +17,4 @@ COPY backend ./
 COPY --from=frontend /build/dist ./dist
 
 EXPOSE 8000
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 60 app:app"]
+CMD ["sh", "-c", "flask --app app db upgrade && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 60 app:app"]
