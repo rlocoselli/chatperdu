@@ -20,6 +20,14 @@ app.use(
   })
 );
 
+// APK files are ZIP-based internally, so send the Android package MIME type
+// explicitly to prevent browsers from presenting the download as a ZIP.
+app.get('/download/chat-perdu.apk', (_req, res) => {
+  res.type('application/vnd.android.package-archive');
+  res.set('Content-Disposition', 'attachment; filename="chat-perdu.apk"');
+  res.sendFile(path.join(__dirname, 'dist', 'download', 'chat-perdu.apk'));
+});
+
 app.use(express.static(path.join(__dirname, 'dist')));
 
 app.get('*', (_req, res) => {

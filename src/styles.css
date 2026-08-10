@@ -9,3 +9,62 @@
 .address-suggestions{position:fixed;z-index:200;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px #102e2830;overflow:hidden}.address-suggestions button{display:block;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--line);background:#fff;text-align:left;color:var(--ink);font-size:12px}.address-suggestions button:hover{background:#fff5f1}
 .danger{border:0;border-radius:9px;padding:13px 18px;background:#b23b2c;color:#fff;font-weight:700}
 @media (max-width:800px){header{height:64px;padding:0 18px;gap:12px}nav{display:none;position:absolute;top:64px;left:0;right:0;background:var(--ink);padding:18px 22px;flex-direction:column;gap:16px}nav.open{display:flex}.head-actions{margin-left:auto;gap:4px}.head-actions .primary{display:none}.menu{display:block;color:inherit}.hero{height:620px}.hero-content{left:22px;right:22px;top:125px}.hero h1{font-size:40px}.hero-content>p{font-size:15px}.searchbox{height:auto;min-height:54px;padding:6px}.searchbox button{padding:0 12px}.hero-foot{gap:10px;flex-wrap:wrap;font-size:11px}.stats{margin:-30px 14px 0;grid-template-columns:repeat(2,1fr);padding:14px 8px;gap:14px}.stats>div{padding:0 10px;border:0}.stats strong{font-size:17px}.list-section{margin:60px auto;padding:0 16px}.section-title{display:block}.section-title h2,.how h2,.community h2{font-size:30px}.section-title .link{margin-top:18px}.filters{overflow-x:auto;padding-bottom:5px}.filters button{white-space:nowrap}.cards{grid-template-columns:1fr;gap:14px}.photo{height:220px}.how{padding:60px 20px;display:block}.steps{margin-top:30px;padding:8px 18px}.modal{padding:27px 20px}.choice{grid-template-columns:1fr}.detail{width:100%}.detail>img{height:32vh}.detail-body{padding:22px}.facts{grid-template-columns:1fr 1fr;gap:12px}.facts span:nth-child(2){border:0}.site-footer{padding:28px 20px;display:grid;gap:12px}.site-footer p{margin:0}.consent{left:12px;right:12px;bottom:12px;display:block}.consent>div:last-child{display:flex;gap:8px;margin-top:12px}.consent button{flex:1}}
+
+/* Keep the mobile layout independent from the wide-screen grid rules above. */
+@media (max-width: 600px) {
+  body { overflow-x: hidden; }
+  .hero > img { object-position: right center; }
+  header { position: absolute; padding-inline: 16px; }
+  header .logo { font-size: 20px; }
+  header .logo > span:first-child { width: 30px; height: 30px; }
+  .hero { height: 650px; }
+  .hero-content { top: 112px; left: 18px; right: 18px; }
+  .hero h1 { font-size: clamp(34px, 10vw, 42px); margin: 17px 0; }
+  .hero-content > p { line-height: 1.5; }
+  .searchbox { margin-top: 22px; gap: 7px; }
+  .searchbox input { font-size: 13px; }
+  .searchbox button { flex: 0 0 auto; padding-inline: 10px; }
+  .hero-foot { display: grid; gap: 7px; }
+  .stats { margin: -22px 12px 0; padding: 16px 8px; }
+  .stats > div { min-width: 0; }
+  .stats span { line-height: 1.3; }
+  .list-section { margin-top: 52px; }
+  .section-title h2 { font-size: 29px; }
+  .filters { margin-block: 22px 16px; }
+  .cat-card { display: grid; grid-template-columns: 112px 1fr; }
+  .cat-card .photo { height: 100%; min-height: 145px; }
+  .cat-card .card-body { padding: 13px; min-width: 0; }
+  .card-body > div { display: block; }
+  .card-body h3 { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-body > div span { display: block; margin-top: 4px; }
+  .card-body p { margin: 12px 0; line-height: 1.3; }
+  .card-body footer { display: block; }
+  .card-body footer b { display: block; margin-top: 6px; }
+  .nearby-map { margin-bottom: 45px; padding-inline: 16px; }
+  .nearby-map iframe { height: 240px; }
+  .how { padding-block: 52px; }
+  .steps > div { min-height: 96px; grid-template-columns: 35px 1fr 25px; gap: 10px; }
+  .community { padding: 65px 18px; }
+  .modal { max-height: 90vh; }
+  .notification-panel { top: 70px; right: 12px; width: calc(100% - 24px); }
+  .floating-delete { right: 14px; bottom: 14px; }
+}
+
+@media (max-width: 600px) {
+  .consent {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    transform: none;
+    padding: 15px;
+  }
+  .consent > div:first-child { align-items: flex-start; }
+  .consent > div:first-child svg { flex: 0 0 auto; }
+  .consent > div:last-child { flex-wrap: wrap; }
+  .consent button {
+    min-width: 145px;
+    white-space: normal;
+    line-height: 1.25;
+    padding: 10px 8px;
+  }
+}
